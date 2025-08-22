@@ -69,7 +69,7 @@ export async function updateLivepeerStream(
   updateData: {
     name?: string;
     record?: boolean;
-  },
+  }
 ) {
   try {
     const response = await livepeer.stream.update(updateData, streamId);
@@ -94,3 +94,5 @@ export async function getStreamHealth(streamId: string) {
     throw new Error("Failed to get stream health");
   }
 }
+
+

@@ -86,7 +86,7 @@ function VideoPlayerComponent({ playbackId, addLog }: VideoPlayerProps) {
 
       addLog(`Video error: ${errorMessage}`, "error");
     },
-    [addLog],
+    [addLog]
   );
 
   const handleLoadStart = useCallback(() => {
@@ -149,17 +149,14 @@ function VideoPlayerComponent({ playbackId, addLog }: VideoPlayerProps) {
             }
             break;
           case ErrorTypes.MEDIA_ERROR:
-            addLog("HLS Media error - attempting to recover", "error");
+            addLog("HLS Media error - stream may not be live", "error");
             // Try to recover from media error
             if (hlsRef.current) {
               hlsRef.current.recoverMediaError();
             }
             break;
           default:
-            addLog(
-              `HLS Fatal error: ${data.type} - destroying player`,
-              "error",
-            );
+            addLog(`HLS Fatal error: ${data.details}`, "error");
             if (hlsRef.current) {
               hlsRef.current.destroy();
               hlsRef.current = null;
@@ -167,26 +164,33 @@ function VideoPlayerComponent({ playbackId, addLog }: VideoPlayerProps) {
             break;
         }
       } else {
-        switch (data.type) {
-          case ErrorTypes.NETWORK_ERROR:
-            addLog("HLS Network warning (non-fatal)", "info");
-            break;
-          case ErrorTypes.MEDIA_ERROR:
-            addLog("HLS Media warning (non-fatal)", "info");
-            break;
-          default:
-            addLog(`HLS Non-fatal error: ${data.type}`, "info");
+        // Non-fatal errors
+        if (data.details === "manifestParsingError") {
+          addLog("❌ Stream manifest error - no video data available", "error");
+          addLog(
+            "💡 This means the stream exists but has no video content",
+            "info"
+          );
+          addLog("🔧 Start streaming in OBS Studio to add video data", "info");
+        } else {
+          addLog(`HLS Warning: ${data.details}`, "error");
         }
       }
     },
-    [addLog],
+    [addLog]
   );
 
   useEffect(() => {
     const video = videoRef.current;
-    if (!video || !playbackId) return;
+    if (!video || !playbackId) {
+      if (!playbackId) {
+        addLog("❌ No playback ID available for video player", "error");
+      }
+      return;
+    }
 
-    const videoSrc = `https://livepeercdn.studio/hls/${playbackId}/index.m3u8`;
+    const videoSrc = `https://playback.livepeer.studio/hls/${playbackId}/index.m3u8`;
+    addLog(`🎬 Loading video from: ${videoSrc}`, "info");
 
     if (hlsRef.current) {
       hlsRef.current.destroy();
@@ -213,7 +217,7 @@ function VideoPlayerComponent({ playbackId, addLog }: VideoPlayerProps) {
       hls.on(Hls.Events.MANIFEST_PARSED, (event, data) => {
         addLog(
           `HLS manifest loaded - ${data.levels.length} quality levels available`,
-          "success",
+          "success"
         );
         setAvailableQualities(data.levels);
       });
@@ -290,7 +294,7 @@ function VideoPlayerComponent({ playbackId, addLog }: VideoPlayerProps) {
       if (hlsRef.current) {
         hlsRef.current.stopLoad();
         hlsRef.current.loadSource(
-          `https://livepeercdn.studio/hls/${playbackId}/index.m3u8`,
+          `https://livepeercdn.studio/hls/${playbackId}/index.m3u8`
         );
         addLog(" HLS: Reloading stream...", "info");
       } else {
@@ -349,7 +353,7 @@ function VideoPlayerComponent({ playbackId, addLog }: VideoPlayerProps) {
 
       addLog(
         ` HLS Stats - Quality: ${currentLevel >= 0 ? levels[currentLevel]?.height + "p" : "Auto"}, Buffer: ${bufferedSeconds.toFixed(1)}s`,
-        "info",
+        "info"
       );
     } else if (video) {
       const bufferedSeconds =
@@ -358,7 +362,7 @@ function VideoPlayerComponent({ playbackId, addLog }: VideoPlayerProps) {
           : 0;
       addLog(
         `Video Stats - Buffer: ${bufferedSeconds.toFixed(1)}s, Duration: ${video.duration.toFixed(1)}s`,
-        "info",
+        "info"
       );
     }
   }, [addLog]);
@@ -369,11 +373,11 @@ function VideoPlayerComponent({ playbackId, addLog }: VideoPlayerProps) {
         hlsRef.current.currentLevel = level;
         addLog(
           `Switched to quality level ${level === -1 ? "Auto" : level}`,
-          "info",
+          "info"
         );
       }
     },
-    [addLog],
+    [addLog]
   );
 
   const formatTime = (seconds: number) => {
@@ -501,9 +505,45 @@ function VideoPlayerComponent({ playbackId, addLog }: VideoPlayerProps) {
 }
 
 export default function StreamTestComponent() {
-  const [wallet] = useState(
-    "0x04fef7247897775ee856f4a2c52b460300b67306c14a200ce71eb1f9190a388e",
-  );
+  const [wallet, setWallet] = useState<string>("");
+  const [isClient, setIsClient] = useState(false);
+
+  // Fix hydration issues by only rendering on client
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
+
+  // Get wallet address from auth context or localStorage
+  useEffect(() => {
+    if (!isClient) return;
+
+    const getWalletAddress = () => {
+      // Try to get from localStorage first
+      const storedWallet =
+        localStorage.getItem("wallet") ||
+        localStorage.getItem("connectedWallet") ||
+        sessionStorage.getItem("wallet");
+
+      if (storedWallet) {
+        setWallet(storedWallet);
+        return;
+      }
+
+      // Fallback to a default for testing (you can remove this in production)
+      setWallet(
+        "0x04fef7247897775ee856f4a2c52b460300b67306c14a200ce71eb1f9190a388e"
+      );
+    };
+
+    getWalletAddress();
+  }, [isClient]);
+
+  // Check for existing stream when wallet is available
+  useEffect(() => {
+    if (wallet && isClient) {
+      getStreamData();
+    }
+  }, [wallet, isClient]);
   const [streamData, setStreamData] = useState<StreamData>({});
   const [loading, setLoading] = useState(false);
   const [logs, setLogs] = useState<string[]>([]);
@@ -542,6 +582,8 @@ export default function StreamTestComponent() {
   }
 
   const [apiCallHistory, setApiCallHistory] = useState<ApiCallRecord[]>([]);
+  const [autoCheckInterval, setAutoCheckInterval] =
+    useState<NodeJS.Timeout | null>(null);
 
   const addLog = useCallback(
     (message: string, type: "info" | "success" | "error" = "info") => {
@@ -549,12 +591,12 @@ export default function StreamTestComponent() {
       const logEntry = `[${timestamp}] ${type.toUpperCase()}: ${message}`;
       setLogs((prev) => [...prev, logEntry]);
     },
-    [],
+    []
   );
 
   const apiCall = async (
     endpoint: string,
-    options: RequestInit = {},
+    options: RequestInit = {}
   ): Promise<ApiResponse> => {
     const startTime = Date.now();
 
@@ -588,13 +630,13 @@ export default function StreamTestComponent() {
       if (response.ok) {
         addLog(
           `API call successful (${duration}ms): ${data.message || "Success"}`,
-          "success",
+          "success"
         );
         return { success: true, ...data };
       } else {
         addLog(
           `API call failed (${duration}ms): ${data.error || "Unknown error"}`,
-          "error",
+          "error"
         );
         return { success: false, error: data.error };
       }
@@ -621,6 +663,14 @@ export default function StreamTestComponent() {
   };
 
   const createStream = async () => {
+    if (!wallet) {
+      addLog(
+        "❌ No wallet address available. Please connect your wallet.",
+        "error"
+      );
+      return;
+    }
+
     setLoading(true);
     const result = await apiCall("/api/streams/create", {
       method: "POST",
@@ -633,7 +683,21 @@ export default function StreamTestComponent() {
 
     if (result.success && result.streamData) {
       setStreamData(result.streamData);
-      addLog("Stream created successfully!", "success");
+      addLog(
+        "Stream created successfully! Now start streaming in OBS Studio.",
+        "success"
+      );
+
+      // Show instructions for the new 2-step process
+      if (result.instructions) {
+        addLog("📋 Next steps:", "info");
+        addLog(`1. ${result.instructions.step1}`, "info");
+        addLog(`2. ${result.instructions.step2}`, "info");
+        addLog(`3. ${result.instructions.step3}`, "info");
+        addLog(`4. ${result.instructions.step4}`, "info");
+      }
+    } else {
+      addLog(`❌ ${result.error || "Failed to create stream"}`, "error");
     }
     setLoading(false);
   };
@@ -666,6 +730,90 @@ export default function StreamTestComponent() {
     setLoading(false);
   };
 
+  const checkAutoStart = async () => {
+    if (!wallet) {
+      addLog(
+        "❌ No wallet address available. Please connect your wallet.",
+        "error"
+      );
+      return;
+    }
+
+    setLoading(true);
+    const result = await apiCall("/api/streams/start", {
+      method: "POST",
+      body: JSON.stringify({ wallet }),
+    });
+
+    if (result.success) {
+      if (result.autoStarted) {
+        setStreamData((prev) => ({ ...prev, isLive: true }));
+        addLog(
+          "🎉 Stream auto-started! OBS Studio connection detected!",
+          "success"
+        );
+        // Stop auto-checking once stream is live
+        if (autoCheckInterval) {
+          clearInterval(autoCheckInterval);
+          setAutoCheckInterval(null);
+        }
+      } else if (result.waitingForOBS) {
+        addLog("⏳ Waiting for OBS Studio to connect...", "info");
+      } else if (result.isLive) {
+        setStreamData((prev) => ({ ...prev, isLive: true }));
+        addLog("✅ Stream is already live!", "success");
+        // Stop auto-checking once stream is live
+        if (autoCheckInterval) {
+          clearInterval(autoCheckInterval);
+          setAutoCheckInterval(null);
+        }
+      } else if (result.streamKey) {
+        addLog(`🔑 Stream key created: ${result.streamKey}`, "success");
+        setStreamData((prev) => ({
+          ...prev,
+          streamKey: result.streamKey,
+          streamId: result.streamId,
+          playbackId: result.playbackId,
+        }));
+      }
+    } else {
+      addLog(`❌ ${result.error || "Failed to check stream status"}`, "error");
+    }
+    setLoading(false);
+  };
+
+  const startAutoCheck = () => {
+    if (autoCheckInterval) {
+      clearInterval(autoCheckInterval);
+    }
+
+    const interval = setInterval(() => {
+      if (streamData.streamId && !streamData.isLive) {
+        checkAutoStart();
+      }
+    }, 5000); // Check every 5 seconds
+
+    setAutoCheckInterval(interval);
+    addLog("🔄 Auto-check started - checking every 5 seconds", "info");
+  };
+
+  const stopAutoCheck = () => {
+    if (autoCheckInterval) {
+      clearInterval(autoCheckInterval);
+      setAutoCheckInterval(null);
+      addLog("⏹️ Auto-check stopped", "info");
+    }
+  };
+
+  // Cleanup interval on unmount
+  useEffect(() => {
+    return () => {
+      if (autoCheckInterval) {
+        clearInterval(autoCheckInterval);
+      }
+    };
+  }, [autoCheckInterval]);
+
   const getStreamData = async () => {
     setLoading(true);
     const result = await apiCall(`/api/streams/${wallet}`);
@@ -685,7 +833,7 @@ export default function StreamTestComponent() {
 
     setLoading(true);
     const result = await apiCall(
-      `/api/streams/playback/${streamData.playbackId}`,
+      `/api/streams/playback/${streamData.playbackId}`
     );
 
     if (result.success) {
@@ -723,6 +871,30 @@ export default function StreamTestComponent() {
     if (result.success) {
       setStreamData({});
       addLog("Stream deleted!", "success");
+    } else {
+      addLog(`❌ ${result.error || "Failed to delete stream"}`, "error");
+    }
+    setLoading(false);
+  };
+
+  const forceDeleteStream = async () => {
+    if (
+      !confirm(
+        "Are you sure you want to FORCE DELETE the stream? This will delete even if it's live!"
+      )
+    )
+      return;
+
+    setLoading(true);
+    const result = await apiCall(`/api/streams/delete-get?wallet=${wallet}`, {
+      method: "GET",
+    });
+
+    if (result.success) {
+      setStreamData({});
+      addLog("Stream force deleted successfully!", "success");
+    } else {
+      addLog(`❌ ${result.error || "Failed to force delete stream"}`, "error");
     }
     setLoading(false);
   };
@@ -739,7 +911,7 @@ export default function StreamTestComponent() {
     if (result.success && result.metrics) {
       addLog(
         `Metrics retrieved! Current viewers: ${result.metrics.stream?.currentViewers || 0}`,
-        "success",
+        "success"
       );
     }
     setLoading(false);
@@ -769,7 +941,7 @@ export default function StreamTestComponent() {
     if (!streamData.playbackId) return;
 
     const result = await apiCall(
-      `/api/streams/chat?playbackId=${streamData.playbackId}`,
+      `/api/streams/chat?playbackId=${streamData.playbackId}`
     );
 
     if (result.success && result.messages) {
@@ -821,10 +993,235 @@ export default function StreamTestComponent() {
     }
   };
 
+  const testStreamUrl = async () => {
+    if (!streamData.playbackId) {
+      addLog("❌ No playback ID available to test", "error");
+      return;
+    }
+
+    const streamUrl = `https://livepeercdn.studio/hls/${streamData.playbackId}/index.m3u8`;
+    addLog(`🔍 Testing stream URL: ${streamUrl}`, "info");
+
+    try {
+      const response = await fetch(streamUrl, { method: "HEAD" });
+      if (response.ok) {
+        addLog("✅ Stream URL is accessible", "success");
+      } else {
+        addLog(`❌ Stream URL returned status: ${response.status}`, "error");
+      }
+    } catch (error) {
+      addLog(`❌ Stream URL test failed: ${error}`, "error");
+    }
+  };
+
+  const debugPlaybackIssue = async () => {
+    if (!streamData.playbackId) {
+      addLog("❌ No playback ID available to debug", "error");
+      return;
+    }
+
+    addLog(`🔍 Debugging playback issue for: ${streamData.playbackId}`, "info");
+
+    // Test 1: Check if stream exists in database
+    try {
+      const dbResult = await apiCall(
+        `/api/streams/playback/${streamData.playbackId}`,
+        {
+          method: "GET",
+        }
+      );
+
+      if (dbResult.success) {
+        addLog("✅ Stream found in database", "success");
+        if (dbResult.streamInfo) {
+          addLog(`📊 Database Info:`, "info");
+          addLog(
+            `   - Live: ${dbResult.streamInfo.isLive ? "Yes" : "No"}`,
+            "info"
+          );
+          addLog(`   - Title: ${dbResult.streamInfo.title}`, "info");
+        }
+      } else {
+        addLog(`❌ Stream not found in database: ${dbResult.error}`, "error");
+      }
+    } catch (error) {
+      addLog(`❌ Database check failed: ${error}`, "error");
+    }
+
+        // Test 2: Check Livepeer directly
+    try {
+      const livepeerUrl = `https://playback.livepeer.studio/hls/${streamData.playbackId}/index.m3u8`;
+      addLog(`🔍 Testing Livepeer URL: ${livepeerUrl}`, "info");
+      
+      const response = await fetch(livepeerUrl);
+      const text = await response.text();
+      
+      if (response.ok) {
+        addLog("✅ Livepeer URL accessible", "success");
+        if (text.includes("EXTM3U")) {
+          addLog("✅ Valid HLS manifest found", "success");
+        } else {
+          addLog("⚠️ Response is not a valid HLS manifest", "error");
+          addLog(`📄 Response preview: ${text.substring(0, 200)}...`, "info");
+        }
+      } else {
+        addLog(`❌ Livepeer URL failed: ${response.status}`, "error");
+        addLog(`📄 Error response: ${text}`, "error");
+      }
+    } catch (error) {
+      addLog(`❌ Livepeer test failed: ${error}`, "error");
+    }
+
+    // Test 3: Check if stream is actually live
+    try {
+      const healthUrl = `https://playback.livepeer.studio/hls/${streamData.playbackId}/index.m3u8`;
+      const healthResponse = await fetch(healthUrl);
+      const healthText = await healthResponse.text();
+
+      if (healthText.includes("EXT-X-ERROR")) {
+        addLog("❌ Stream has error in manifest", "error");
+        addLog(`📄 Error details: ${healthText}`, "error");
+      } else if (healthText.includes("EXT-X-ENDLIST")) {
+        addLog("⚠️ Stream has ended (EXT-X-ENDLIST found)", "error");
+      } else if (healthText.includes("EXTINF")) {
+        addLog("✅ Stream appears to be live with segments", "success");
+      } else {
+        addLog("⚠️ Stream manifest is empty or invalid", "error");
+        addLog(
+          `📄 Manifest preview: ${healthText.substring(0, 200)}...`,
+          "info"
+        );
+      }
+    } catch (error) {
+      addLog(`❌ Stream health check failed: ${error}`, "error");
+    }
+  };
+
+  const checkStreamStatus = async () => {
+    if (!streamData.playbackId) {
+      addLog("❌ No playback ID available to check", "error");
+      return;
+    }
+
+    addLog(`🔍 Checking stream status for: ${streamData.playbackId}`, "info");
+
+    try {
+      const result = await apiCall(
+        `/api/streams/playback/${streamData.playbackId}`,
+        {
+          method: "GET",
+        }
+      );
+
+      if (result.success) {
+        addLog("✅ Stream status check successful", "success");
+        if (result.streamInfo) {
+          addLog(`📊 Stream Info:`, "info");
+          addLog(
+            `   - Live: ${result.streamInfo.isLive ? "Yes" : "No"}`,
+            "info"
+          );
+          addLog(`   - Title: ${result.streamInfo.title}`, "info");
+          addLog(`   - Viewers: ${result.streamInfo.currentViewers}`, "info");
+        }
+      } else {
+        addLog(`❌ Stream status check failed: ${result.error}`, "error");
+      }
+    } catch (error) {
+      addLog(`❌ Stream status check error: ${error}`, "error");
+    }
+  };
+
+  const fixStreamAccess = async () => {
+    if (!wallet) {
+      addLog("❌ No wallet available to fix stream access", "error");
+      return;
+    }
+
+    addLog(`🔧 Attempting to fix stream access for wallet: ${wallet}`, "info");
+
+    try {
+      // First, force delete the existing stream
+      addLog("🗑️ Force deleting existing stream...", "info");
+      const deleteResult = await apiCall(
+        `/api/streams/delete-get?wallet=${wallet}`,
+        {
+          method: "GET",
+        }
+      );
+
+      if (deleteResult.success) {
+        addLog("✅ Stream deleted successfully", "success");
+
+        // Wait a moment for deletion to complete
+        await new Promise((resolve) => setTimeout(resolve, 2000));
+
+        // Create a new stream
+        addLog("🔄 Creating new stream with proper access...", "info");
+        const createResult = await apiCall("/api/streams/start", {
+          method: "POST",
+          body: JSON.stringify({ wallet }),
+        });
+
+        if (createResult.success) {
+          addLog("✅ New stream created successfully", "success");
+          addLog("📋 Stream Key:", "info");
+          addLog(`   ${createResult.streamKey}`, "info");
+          addLog("💡 Copy this stream key to OBS Studio", "info");
+
+          // Update local stream data
+          setStreamData({
+            streamId: createResult.streamId,
+            playbackId: createResult.playbackId,
+            streamKey: createResult.streamKey,
+            isLive: false,
+          });
+        } else {
+          addLog(
+            `❌ Failed to create new stream: ${createResult.error}`,
+            "error"
+          );
+        }
+      } else {
+        addLog(`❌ Failed to delete stream: ${deleteResult.error}`, "error");
+      }
+    } catch (error) {
+      addLog(`❌ Stream access fix failed: ${error}`, "error");
+    }
+  };
+
   const clearApiHistory = () => {
     setApiCallHistory([]);
     addLog("API call history cleared", "info");
   };
+
+  // Don't render anything until client-side hydration is complete
+  if (!isClient) {
+    return (
+      <div className="min-h-screen bg-gray-50 p-4 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading streaming interface...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Check if wallet is available
+  if (!wallet) {
+    return (
+      <div className="min-h-screen bg-gray-50 p-4 flex items-center justify-center">
+        <div className="text-center">
+          <div className="bg-yellow-100 border border-yellow-400 text-yellow-700 px-4 py-3 rounded mb-4">
+            <p className="font-medium">Wallet Not Connected</p>
+            <p className="text-sm">
+              Please connect your wallet to start streaming.
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-7xl mx-auto p-6 bg-white rounded-lg shadow-lg">
@@ -846,6 +1243,30 @@ export default function StreamTestComponent() {
             className="bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs hover:bg-blue-200 transition-colors"
           >
             Test HLS Support
+          </button>
+          <button
+            onClick={testStreamUrl}
+            className="bg-green-100 text-green-800 px-2 py-1 rounded text-xs hover:bg-green-200 transition-colors"
+          >
+            Test Stream URL
+          </button>
+          <button
+            onClick={checkStreamStatus}
+            className="bg-purple-100 text-purple-800 px-2 py-1 rounded text-xs hover:bg-purple-200 transition-colors"
+          >
+            Check Stream Status
+          </button>
+          <button
+            onClick={fixStreamAccess}
+            className="bg-orange-100 text-orange-800 px-2 py-1 rounded text-xs hover:bg-orange-200 transition-colors"
+          >
+            Fix Stream Access
+          </button>
+          <button
+            onClick={debugPlaybackIssue}
+            className="bg-red-100 text-red-800 px-2 py-1 rounded text-xs hover:bg-red-200 transition-colors"
+          >
+            Debug Playback
           </button>
         </div>
       </div>
@@ -887,7 +1308,11 @@ export default function StreamTestComponent() {
           <div>
             <span className="text-sm text-gray-500">HLS Support:</span>
             <div className="font-semibold text-purple-600">
-              {Hls.isSupported() ? "HLS.js" : "Native"}
+              {isClient
+                ? Hls.isSupported()
+                  ? "HLS.js"
+                  : "Native"
+                : "Loading..."}
             </div>
           </div>
         </div>
@@ -906,7 +1331,7 @@ export default function StreamTestComponent() {
               key={tab.id}
               onClick={() =>
                 setActiveTab(
-                  tab.id as "create" | "manage" | "view" | "chat" | "debug",
+                  tab.id as "create" | "manage" | "view" | "chat" | "debug"
                 )
               }
               className={`py-2 px-1 border-b-2 font-medium text-sm transition-colors ${
@@ -928,6 +1353,39 @@ export default function StreamTestComponent() {
               <h3 className="text-xl font-semibold mb-4 text-blue-800">
                 Stream Creation & Management
               </h3>
+
+              {/* Wallet Address Display */}
+              {isClient && (
+                <div className="mb-4">
+                  <label className="block text-sm font-medium mb-1 text-gray-700">
+                    Connected Wallet:
+                  </label>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={wallet}
+                      onChange={(e) => setWallet(e.target.value)}
+                      className="flex-1 p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent font-mono text-sm"
+                      placeholder="Wallet address will appear here"
+                      readOnly
+                    />
+                    <button
+                      onClick={() => {
+                        const randomWallet =
+                          "0x" + Math.random().toString(16).substr(2, 40);
+                        setWallet(randomWallet);
+                      }}
+                      className="px-4 py-3 bg-gray-500 text-white rounded-md hover:bg-gray-600 transition-colors text-sm"
+                    >
+                      Test Wallet
+                    </button>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Using connected wallet address for streaming. Click "Test
+                    Wallet" for testing.
+                  </p>
+                </div>
+              )}
 
               <div className="space-y-4">
                 <div className="grid md:grid-cols-2 gap-4">
@@ -1136,7 +1594,7 @@ export default function StreamTestComponent() {
                     disabled={loading}
                     className="bg-blue-500 text-white px-6 py-3 rounded-md hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed font-medium transition-colors"
                   >
-                    {loading ? "Creating..." : " Create Stream"}
+                    {loading ? "Creating..." : "Create Stream (2-Step)"}
                   </button>
 
                   <button
@@ -1167,6 +1625,43 @@ export default function StreamTestComponent() {
                     {loading ? "Deleting..." : " Delete"}
                   </button>
                 </div>
+
+                {/* Force Delete Button - Works even when stream is live */}
+                <div className="mt-4">
+                  {streamData.streamId ? (
+                    <div className="bg-yellow-50 border border-yellow-200 rounded-md p-3 mb-3">
+                      <p className="text-sm text-yellow-800">
+                        ⚠️ Existing stream detected:{" "}
+                        <code className="text-xs">{streamData.streamId}</code>
+                      </p>
+                      <p className="text-xs text-yellow-600 mt-1">
+                        You need to delete the existing stream before creating a
+                        new one.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="bg-blue-50 border border-blue-200 rounded-md p-3 mb-3">
+                      <p className="text-sm text-blue-800">
+                        ℹ️ No existing stream detected
+                      </p>
+                      <p className="text-xs text-blue-600 mt-1">
+                        You can create a new stream or use force delete if
+                        you're getting "User already has an active stream"
+                        error.
+                      </p>
+                    </div>
+                  )}
+                  <button
+                    onClick={forceDeleteStream}
+                    disabled={loading || !wallet}
+                    className="w-full bg-red-700 text-white px-6 py-3 rounded-md hover:bg-red-800 disabled:opacity-50 disabled:cursor-not-allowed font-medium transition-colors border-2 border-red-600"
+                  >
+                    {loading ? "Force Deleting..." : "🗑️ FORCE DELETE STREAM"}
+                  </button>
+                  <p className="text-xs text-red-600 mt-1 text-center">
+                    ⚠️ This will delete the stream even if it's currently live
+                  </p>
+                </div>
               </div>
             </div>
           )}
@@ -1179,13 +1674,13 @@ export default function StreamTestComponent() {
               <div className="space-y-4">
                 <div className="grid grid-cols-2 gap-3">
                   <button
-                    onClick={startStream}
+                    onClick={checkAutoStart}
                     disabled={
                       loading || !streamData.streamId || streamData.isLive
                     }
                     className="bg-green-500 text-white px-6 py-3 rounded-md hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed font-medium transition-colors"
                   >
-                    {loading ? "Starting..." : " Start Stream"}
+                    {loading ? "Checking..." : "Check Auto-Start"}
                   </button>
 
                   <button
@@ -1196,6 +1691,63 @@ export default function StreamTestComponent() {
                     {loading ? "Stopping..." : " Stop Stream"}
                   </button>
                 </div>
+
+                <div className="bg-blue-50 p-3 rounded-md border border-blue-200">
+                  <h4 className="font-semibold text-sm text-blue-800 mb-2">
+                    🚀 New 2-Step Process:
+                  </h4>
+                  <ol className="text-xs text-blue-700 space-y-1">
+                    <li>1. Create stream (✅ Done)</li>
+                    <li>2. Start streaming in OBS Studio</li>
+                    <li>3. Click "Check Auto-Start" above</li>
+                    <li>4. Stream automatically goes live! 🎉</li>
+                  </ol>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    onClick={startAutoCheck}
+                    disabled={
+                      loading ||
+                      !streamData.streamId ||
+                      streamData.isLive ||
+                      autoCheckInterval
+                    }
+                    className="bg-purple-500 text-white px-4 py-2 rounded-md hover:bg-purple-600 disabled:opacity-50 disabled:cursor-not-allowed font-medium transition-colors text-sm"
+                  >
+                    🔄 Start Auto-Check
+                  </button>
+
+                  <button
+                    onClick={stopAutoCheck}
+                    disabled={loading || !autoCheckInterval}
+                    className="bg-gray-500 text-white px-4 py-2 rounded-md hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed font-medium transition-colors text-sm"
+                  >
+                    ⏹️ Stop Auto-Check
+                  </button>
+                </div>
+
+                {/* Force Delete Button in Manage Tab */}
+                <div className="mt-4">
+                  <button
+                    onClick={forceDeleteStream}
+                    disabled={loading || !wallet}
+                    className="w-full bg-red-700 text-white px-4 py-2 rounded-md hover:bg-red-800 disabled:opacity-50 disabled:cursor-not-allowed font-medium transition-colors border-2 border-red-600 text-sm"
+                  >
+                    {loading ? "Force Deleting..." : "🗑️ FORCE DELETE STREAM"}
+                  </button>
+                  <p className="text-xs text-red-600 mt-1 text-center">
+                    ⚠️ Emergency delete - works even when stream is live
+                  </p>
+                </div>
+
+                {autoCheckInterval && (
+                  <div className="bg-green-50 p-2 rounded-md border border-green-200">
+                    <p className="text-xs text-green-700">
+                      🔄 Auto-checking every 5 seconds...
+                    </p>
+                  </div>
+                )}
 
                 <div className="grid grid-cols-2 gap-3">
                   <button
@@ -1332,10 +1884,40 @@ export default function StreamTestComponent() {
                     </div>
                   </div>
 
-                  <VideoPlayerComponent
-                    playbackId={streamData.playbackId}
-                    addLog={addLog}
-                  />
+                  {streamData.playbackId ? (
+                    <div>
+                      <VideoPlayerComponent
+                        playbackId={streamData.playbackId}
+                        addLog={addLog}
+                      />
+                      <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
+                        <p className="text-sm text-blue-800">
+                          💡 <strong>Troubleshooting:</strong> If you see "HLS
+                          Network error" or "manifestParsingError", it means the
+                          stream exists but isn't live yet. Start streaming in
+                          OBS Studio first!
+                        </p>
+                        <p className="text-sm text-blue-700 mt-2">
+                          🔧 <strong>Quick Fix:</strong> If you're getting "not
+                          allowed to view this stream" error, click "Fix Stream
+                          Access" to recreate the stream with proper
+                          permissions.
+                        </p>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="bg-gray-100 rounded-lg p-8 text-center">
+                      <div className="text-gray-500 mb-4">
+                        <div className="text-4xl mb-2">📺</div>
+                        <h3 className="text-lg font-semibold mb-2">
+                          No Stream Available
+                        </h3>
+                        <p className="text-sm">
+                          Create a stream first to see the video player here.
+                        </p>
+                      </div>
+                    </div>
+                  )}
 
                   <div className="grid md:grid-cols-3 gap-4 text-sm">
                     <div className="p-4 bg-white rounded-lg border">
@@ -1417,7 +1999,7 @@ export default function StreamTestComponent() {
                           onClick={() =>
                             copyToClipboard(
                               `https://livepeercdn.studio/hls/${streamData.playbackId}/index.m3u8`,
-                              "HLS URL",
+                              "HLS URL"
                             )
                           }
                           className="bg-blue-500 text-white px-3 py-2 rounded text-sm hover:bg-blue-600 transition-colors"
@@ -1826,7 +2408,7 @@ export default function StreamTestComponent() {
                       };
                       copyToClipboard(
                         JSON.stringify(config, null, 2),
-                        "Debug Config",
+                        "Debug Config"
                       );
                     }}
                     className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 transition-colors"

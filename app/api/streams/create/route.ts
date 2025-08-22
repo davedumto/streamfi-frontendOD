@@ -19,8 +19,22 @@ export async function POST(req: Request) {
     if (!wallet || !title) {
       console.log("❌ Validation failed: missing wallet or title");
       return NextResponse.json(
-        { error: "Wallet and title are required" },
-        { status: 400 },
+        {
+          error: "Wallet and title are required",
+          message: "Please connect your wallet and provide a stream title",
+        },
+        { status: 400 }
+      );
+    }
+
+    // Validate wallet address format
+    if (!wallet.startsWith("0x") || wallet.length < 10) {
+      return NextResponse.json(
+        {
+          error: "Invalid wallet address format",
+          message: "Please provide a valid wallet address",
+        },
+        { status: 400 }
       );
     }
 
@@ -28,7 +42,7 @@ export async function POST(req: Request) {
       console.log("❌ Validation failed: title too long");
       return NextResponse.json(
         { error: "Title must be 100 characters or less" },
-        { status: 400 },
+        { status: 400 }
       );
     }
 
@@ -36,7 +50,7 @@ export async function POST(req: Request) {
       console.log("❌ Validation failed: description too long");
       return NextResponse.json(
         { error: "Description must be 500 characters or less" },
-        { status: 400 },
+        { status: 400 }
       );
     }
 
@@ -44,7 +58,7 @@ export async function POST(req: Request) {
     const userExists = await checkExistingTableDetail(
       "users",
       "wallet",
-      wallet,
+      wallet
     );
     if (!userExists) {
       console.log("❌ User not found:", wallet);
@@ -77,7 +91,7 @@ export async function POST(req: Request) {
           error:
             "User already has an active stream. Please delete the existing stream first.",
         },
-        { status: 409 },
+        { status: 409 }
       );
     }
 
@@ -85,12 +99,12 @@ export async function POST(req: Request) {
       console.log("❌ Missing LIVEPEER_API_KEY environment variable");
       return NextResponse.json(
         { error: "Livepeer API key not configured" },
-        { status: 500 },
+        { status: 500 }
       );
     }
     console.log(
       "✅ Livepeer API key found, length:",
-      process.env.LIVEPEER_API_KEY.length,
+      process.env.LIVEPEER_API_KEY.length
     );
 
     console.log("🎬 Creating Livepeer stream...");
@@ -124,7 +138,7 @@ export async function POST(req: Request) {
               ? livepeerError.message
               : "Unknown Livepeer error",
         },
-        { status: 500 },
+        { status: 500 }
       );
     }
 
@@ -137,7 +151,7 @@ export async function POST(req: Request) {
       console.log("❌ Invalid Livepeer response:", livepeerStream);
       return NextResponse.json(
         { error: "Failed to create Livepeer stream - incomplete response" },
-        { status: 500 },
+        { status: 500 }
       );
     }
 
@@ -178,7 +192,7 @@ export async function POST(req: Request) {
           details:
             dbError instanceof Error ? dbError.message : "Database error",
         },
-        { status: 500 },
+        { status: 500 }
       );
     }
 
@@ -186,16 +200,24 @@ export async function POST(req: Request) {
 
     return NextResponse.json(
       {
-        message: "Stream created successfully",
+        message:
+          "Stream created successfully! You can now start streaming in OBS Studio and the stream will automatically go live.",
         streamData: {
           streamId: livepeerStream.id,
           playbackId: livepeerStream.playbackId,
           streamKey: livepeerStream.streamKey,
           title: title,
           isActive: livepeerStream.isActive || false,
+          autoStartEnabled: true,
+        },
+        instructions: {
+          step1: "Copy the stream key above",
+          step2: "Paste it into OBS Studio streaming settings",
+          step3: "Click 'Start Streaming' in OBS Studio",
+          step4: "The stream will automatically go live in the app!",
         },
       },
-      { status: 201 },
+      { status: 201 }
     );
   } catch (error) {
     console.error("❌ Stream creation error:", error);
@@ -214,14 +236,14 @@ export async function POST(req: Request) {
       if (error.message.includes("Livepeer")) {
         return NextResponse.json(
           { error: "Streaming service unavailable. Please try again later." },
-          { status: 503 },
+          { status: 503 }
         );
       }
 
       if (error.message.includes("database") || error.message.includes("sql")) {
         return NextResponse.json(
           { error: "Database error. Please try again later." },
-          { status: 503 },
+          { status: 503 }
         );
       }
     }
@@ -231,7 +253,7 @@ export async function POST(req: Request) {
         error: "Failed to create stream",
         details: errorMessage,
       },
-      { status: 500 },
+      { status: 500 }
     );
   }
 }

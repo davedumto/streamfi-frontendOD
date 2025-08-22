@@ -1,5 +1,46 @@
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/license/MIT)
 
+# StreamFi Frontend
+
+A modern streaming platform built with Next.js, Livepeer, and Web3 technologies.
+
+## 🚀 Twitch-Style Auto-Start Streaming Feature
+
+### Stream Key Flow (Like Twitch)
+
+We've implemented a Twitch-style streaming flow where users get stream keys immediately:
+
+**Twitch-Style Flow:**
+1. User gets stream key immediately (upon signup/first use)
+2. User copies stream key to OBS Studio
+3. User starts streaming in OBS Studio
+4. Stream automatically goes live when OBS Studio connects
+
+### How It Works
+
+1. **Wallet as Identifier**: Each user is identified by their wallet address
+2. **Get Stream Key**: Users get a stream key immediately when they first try to stream
+3. **OBS Studio Setup**: User copies stream key to OBS Studio streaming settings
+4. **Start Streaming**: User clicks "Start Streaming" in OBS Studio
+5. **Auto-Detection**: System automatically detects OBS Studio connection and goes live
+
+### API Endpoints
+
+- `POST /api/streams/start` - Creates user account if needed, creates stream key, checks OBS Studio connection, auto-starts stream
+- `DELETE /api/streams/start` - Stops the stream
+- `POST /api/streams/create` - Manual stream creation (for advanced users)
+- `GET /api/streams/[wallet]` - Get stream data for specific wallet address
+
+### Features
+
+- ✅ **Wallet-based User System**: Each wallet address is a unique user identifier
+- ✅ **Automatic User Creation**: New users are created automatically when they first stream
+- ✅ **Automatic Stream Key Generation**: Stream keys are created on-demand (Twitch-style)
+- ✅ **Auto-detection**: System detects when OBS Studio connects
+- ✅ **No Manual Start**: Stream goes live automatically when OBS Studio connects
+- ✅ **Persistent Stream Keys**: Stream keys stay with user's wallet address
+- ✅ **Dynamic Wallet Support**: Users can change wallet addresses for testing
+
 # StreamFi
 
 ## Overview
