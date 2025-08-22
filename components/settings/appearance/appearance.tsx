@@ -2,13 +2,6 @@
 import type React from "react";
 import { useState, useEffect } from "react";
 import { useTheme } from "@/contexts/theme-context";
-import {
-  bgClasses,
-  textClasses,
-  buttonClasses,
-  componentClasses,
-  combineClasses,
-} from "@/lib/theme-classes";
 
 interface RadioOptionProps {
   label: string;
@@ -36,7 +29,7 @@ const RadioOption: React.FC<RadioOptionProps> = ({
   return (
     <div className="flex items-center">
       <button
-        className={`w-8 h-8 rounded-full ${isSelected ? "bg-purple-600" : "bg-gray-300 dark:bg-gray-600"}  flex items-center justify-center mr-3 transition-colors`}
+        className={`w-8 h-8 rounded-full ${isSelected ? "bg-highlight" : "bg-muted"} flex items-center justify-center mr-3 transition-colors`}
         onClick={onSelect}
       >
         {isSelected && (
@@ -56,16 +49,14 @@ const RadioOption: React.FC<RadioOptionProps> = ({
           </svg>
         )}
       </button>
-      <span className={combineClasses(textClasses.primary, "text-lg")}>
-        {label}
-      </span>
+      <span className="text-foreground text-lg">{label}</span>
     </div>
   );
 };
 
 const SectionCard: React.FC<SectionCardProps> = ({ children }) => {
   return (
-    <div className={combineClasses(componentClasses.card, "p-6 mb-6")}>
+    <div className="bg-card border border-border shadow-sm rounded-lg p-6 mb-6">
       {children}
     </div>
   );
@@ -90,22 +81,11 @@ const OptionsSection: React.FC<OptionsSectionProps> = ({
 
   return (
     <SectionCard>
-      <h2
-        className={combineClasses(
-          textClasses.highlight,
-          "text-xl font-medium mb-2",
-        )}
-      >
-        {title}
-      </h2>
-      <p
-        className={combineClasses(textClasses.tertiary, "text-sm mb-4 italic")}
-      >
-        {description}
-      </p>
+      <h2 className="text-highlight text-xl font-medium mb-2">{title}</h2>
+      <p className="text-muted-foreground text-sm mb-4 italic">{description}</p>
 
       <div className="space-y-4">
-        {options.map((option) => (
+        {options.map(option => (
           <RadioOption
             key={option}
             label={getDisplayLabel(option)}
@@ -127,7 +107,7 @@ const ThemeSettingsPage: React.FC = () => {
 
   // Sync with theme context
   useEffect(() => {
-    setSettings((prev) => ({
+    setSettings(prev => ({
       ...prev,
       theme: theme,
       display: theme,
@@ -136,7 +116,7 @@ const ThemeSettingsPage: React.FC = () => {
 
   // Universal handler for updating settings
   const updateSetting = (key: keyof typeof settings, value: string) => {
-    setSettings((prev) => ({
+    setSettings(prev => ({
       ...prev,
       [key]: value,
     }));
@@ -156,20 +136,14 @@ const ThemeSettingsPage: React.FC = () => {
   };
 
   return (
-    <div
-      className={combineClasses(
-        "min-h-screen",
-        bgClasses.secondary,
-        textClasses.primary,
-      )}
-    >
+    <div className="min-h-screen bg-secondary text-foreground">
       <div className="max-w-8xl mx-auto">
         <OptionsSection
           title="Theme"
           description="Choose between light and dark interface themes"
           value={settings.theme}
           options={commonOptions}
-          onChange={(newValue) => updateSetting("theme", newValue)}
+          onChange={newValue => updateSetting("theme", newValue)}
         />
 
         {/* Display Selection */}
@@ -178,15 +152,12 @@ const ThemeSettingsPage: React.FC = () => {
           description="Choose between light and dark interface themes"
           value={settings.display}
           options={commonOptions}
-          onChange={(newValue) => updateSetting("display", newValue)}
+          onChange={newValue => updateSetting("display", newValue)}
         />
 
         <div className="lg:flex lg:justify-end w-full">
           <button
-            className={combineClasses(
-              buttonClasses.secondary,
-              "w-full lg:w-[12em] px-6 py-3 rounded-lg",
-            )}
+            className="bg-highlight hover:bg-highlight/80 text-primary-foreground w-full lg:w-[12em] px-6 py-3 rounded-lg"
             onClick={saveChanges}
           >
             Save Changes

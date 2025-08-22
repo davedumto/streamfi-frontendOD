@@ -1,5 +1,9 @@
-import React, { createContext, useContext, useState, ReactNode } from "react";
-import Toast, { ToastType } from "./toast";
+"use client";
+
+import type React from "react";
+import { createContext, useContext, useState, type ReactNode } from "react";
+import { AnimatePresence } from "framer-motion"; // Import AnimatePresence
+import Toast, { type ToastType } from "./toast";
 
 interface ToastContextProps {
   showToast: (message: string, type: ToastType) => void;
@@ -30,25 +34,31 @@ export const ToastProvider: React.FC<ToastProviderProps> = ({ children }) => {
 
   const showToast = (message: string, type: ToastType) => {
     const id = Date.now();
-    setToasts((prevToasts) => [...prevToasts, { id, message, type }]);
+    setToasts(prevToasts => [...prevToasts, { id, message, type }]);
   };
 
   const removeToast = (id: number) => {
-    setToasts((prevToasts) => prevToasts.filter((toast) => toast.id !== id));
+    setToasts(prevToasts => prevToasts.filter(toast => toast.id !== id));
   };
 
   return (
     <ToastContext.Provider value={{ showToast }}>
       {children}
-      <div className="fixed bottom-4 left-4 z-50 flex flex-col items-start">
-        {toasts.map((toast) => (
-          <Toast
-            key={toast.id}
-            message={toast.message}
-            type={toast.type}
-            onClose={() => removeToast(toast.id)}
-          />
-        ))}
+      <div className="fixed top-4 right-4 z-50 flex flex-col items-end">
+        {" "}
+        {/* Changed to top-right and items-end */}
+        <AnimatePresence>
+          {" "}
+          {/* Wrap with AnimatePresence */}
+          {toasts.map(toast => (
+            <Toast
+              key={toast.id}
+              message={toast.message}
+              type={toast.type}
+              onClose={() => removeToast(toast.id)}
+            />
+          ))}
+        </AnimatePresence>
       </div>
     </ToastContext.Provider>
   );

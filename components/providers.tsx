@@ -10,16 +10,19 @@ import {
   voyager,
 } from "@starknet-react/core";
 import { AuthProvider } from "./auth/auth-provider";
+
 import { ThemeProvider } from "@/contexts/theme-context";
 
 export function Providers({ children }: { children: React.ReactNode }) {
   const { connectors } = useInjectedConnectors({
     // Recommended connectors for StarkNet
+
     recommended: [argent(), braavos()],
     // Include all injected connectors
-    includeRecommended: "onlyIfNoConnectors",
+    includeRecommended: "always",
     // Order of connectors
-    order: "random",
+
+    order: "alphabetical",
   });
 
   return (
@@ -28,7 +31,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
       provider={publicProvider()}
       connectors={connectors}
       explorer={voyager}
-      autoConnect={true} // Enable auto-connect for persistence
+      autoConnect={true}
     >
       <ThemeProvider>
         <AuthProvider>{children}</AuthProvider>

@@ -27,13 +27,10 @@ import StreamInfoModal from "../dashboard/common/StreamInfoModal";
 import DashboardScreenGuard from "../explore/DashboardScreenGuard";
 import { Button } from "../ui/button";
 import ChatSection from "./chat-section";
-import {
-  bgClasses,
-  borderClasses,
-  combineClasses,
-  textClasses,
-} from "@/lib/theme-classes";
+
 import { text } from "stream/consumers";
+import { Flag } from "lucide-react";
+import ReportLiveStreamModal from "../modals/ReportLiveStreamModal";
 
 const socialIcons: Record<string, JSX.Element> = {
   twitter: <Twitter className="h-4 w-4" />,
@@ -52,7 +49,7 @@ interface ViewStreamProps {
 // Mock API function to fetch stream data
 const fetchStreamData = async () => {
   // Simulate API call delay
-  await new Promise((resolve) => setTimeout(resolve, 1000));
+  await new Promise(resolve => setTimeout(resolve, 1000));
 
   // Mock data
   return {
@@ -148,10 +145,10 @@ const TippingModal = ({
           />
           <select
             value={currency}
-            onChange={(e) => setCurrency(e.target.value)}
+            onChange={e => setCurrency(e.target.value)}
             className="bg-[#18191C] text-white rounded-r-lg px-4 py-3 text-base border border-[#35363C] border-l-0 focus:outline-none"
           >
-            {TIPPING_CURRENCIES.map((c) => (
+            {TIPPING_CURRENCIES.map(c => (
               <option key={c.value} value={c.value}>
                 {c.label}
               </option>
@@ -159,7 +156,7 @@ const TippingModal = ({
           </select>
         </div>
         <div className="flex gap-3 mb-6">
-          {[1, 5, 10, 50, 100].map((val) => (
+          {[1, 5, 10, 50, 100].map(val => (
             <button
               key={val}
               type="button"
@@ -202,6 +199,7 @@ const ViewStream = ({
   const [videoQuality, setVideoQuality] = useState("720p");
   const [showQualityOptions, setShowQualityOptions] = useState(false);
   const [showTipModal, setShowTipModal] = useState(false);
+  const [showReportModal, setShowReportModal] = useState(false);
 
   const videoContainerRef = useRef<HTMLDivElement>(null);
   const mainContentRef = useRef<HTMLDivElement>(null);
@@ -235,7 +233,7 @@ const ViewStream = ({
     if (!videoContainerRef.current) return;
 
     if (!document.fullscreenElement) {
-      videoContainerRef.current.requestFullscreen().catch((err) => {
+      videoContainerRef.current.requestFullscreen().catch(err => {
         console.error(`Error attempting to enable fullscreen: ${err.message}`);
       });
       setIsFullscreen(true);
@@ -326,14 +324,7 @@ const ViewStream = ({
 
   return (
     <DashboardScreenGuard>
-      <div
-        className={combineClasses(
-          bgClasses.primary,
-          textClasses.primary,
-          borderClasses.primary,
-          `flex flex-col h-full bg-[#17191A]`
-        )}
-      >
+      <div className="bg-background text-foreground border border-border flex flex-col h-full bg-[#17191A]">
         <div className="flex flex-1 items-start relative overflow-hidden">
           {/* Main content */}
           <div
@@ -472,7 +463,7 @@ const ViewStream = ({
                         {showQualityOptions && (
                           <div className="absolute bottom-full right-0 mb-2 bg-black/90 rounded-md overflow-hidden">
                             {["1080p", "720p", "480p", "360p", "Auto"].map(
-                              (quality) => (
+                              quality => (
                                 <button
                                   key={quality}
                                   className={`block w-full text-left px-4 py-2 text-xs ${
@@ -506,12 +497,7 @@ const ViewStream = ({
 
               {/* Fullscreen chat - now sits beside the video */}
               {isFullscreen && showChat && (
-                <div
-                  className={combineClasses(
-                    borderClasses.secondary,
-                    "w-[350px] flex-shrink-0 bg-black border-l border-gray-"
-                  )}
-                >
+                <div className="border border-border w-[350px] flex-shrink-0 bg-black border-l border-gray-">
                   <ChatSection
                     messages={chatMessages}
                     onSendMessage={handleSendMessage}
@@ -528,12 +514,7 @@ const ViewStream = ({
             {/* Stream info - only show when not in fullscreen */}
             {!isFullscreen && (
               <>
-                <div
-                  className={combineClasses(
-                    textClasses.secondary,
-                    "border-b border-gray- p-4"
-                  )}
-                >
+                <div className="text-muted-foreground border-b border-gray- p-4">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-4">
                       <div className="relative w-12 h-12 rounded-full overflow-hidden bg-purple-600">
@@ -610,6 +591,22 @@ const ViewStream = ({
                   </div>
                 </div>
 
+                {/* Report Live Stream Button */}
+                {!isOwner && (
+                  <div className="p-4 border-b border-gray-800">
+                    <div className="flex justify-end">
+                      <Button
+                        onClick={() => setShowReportModal(true)}
+                        variant="outline"
+                        className="bg-[#2D2F31] hover:bg-[#3D3F41] text-white border-gray-600 text-xs px-3 py-2 h-8"
+                      >
+                        <Flag className="h-3 w-3 mr-2" />
+                        Report Live Stream
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
                 {/* About section */}
                 <div className={"p-4 border-b border-gray-"}>
                   <div className="flex items-center justify-between mb-1">
@@ -640,12 +637,7 @@ const ViewStream = ({
                   <h3 className="font-medium mb-4">Past Streams</h3>
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                     {/* Past streams would be populated here */}
-                    <div
-                      className={combineClasses(
-                        bgClasses.primary,
-                        "bg-[#] rounded-md overflow-hidden"
-                      )}
-                    >
+                    <div className="bg-background bg-[#] rounded-md overflow-hidden">
                       <div className="aspect-video relative">
                         <Image
                           src="/Images/explore/home/trending-streams/img1.png"
@@ -679,10 +671,7 @@ const ViewStream = ({
                 onSendMessage={handleSendMessage}
                 isCollapsible={true}
                 isFullscreen={false}
-                className={combineClasses(
-                  borderClasses.primary,
-                  "h-full border-l "
-                )}
+                className="border border-border h-full border-l"
                 onToggleChat={toggleChat}
                 showChat={showChat}
               />
@@ -744,6 +733,13 @@ const ViewStream = ({
           username={username}
         />
       )}
+
+      {/* Report Live Stream Modal */}
+      <ReportLiveStreamModal
+        isOpen={showReportModal}
+        onClose={() => setShowReportModal(false)}
+        username={username}
+      />
     </DashboardScreenGuard>
   );
 };

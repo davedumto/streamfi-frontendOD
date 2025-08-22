@@ -9,24 +9,20 @@ import {
   MonitorPlay,
   LayoutDashboard,
 } from "lucide-react";
-import User from "@/public/Images/user.png";
 import { motion, easeInOut, easeOut } from "framer-motion";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/components/auth/auth-provider";
 import { useAccount, useDisconnect } from "@starknet-react/core";
-import {
-  bgClasses,
-  textClasses,
-  borderClasses,
-  combineClasses,
-} from "@/lib/theme-classes";
 
-// Define types for menu items
+import { Flag } from "lucide-react";
+
 interface MenuItem {
   icon: ReactNode;
   label: string;
   route?: string; // Added route property
+  onClick?: (item: MenuItem) => void; // Optional onClick handler
+  mobile: boolean; // Flag to indicate if the item is for mobile
 }
 
 interface MenuSection {
@@ -46,19 +42,11 @@ const MenuItem = ({ icon, label, route, onClick }: MenuItemProps) => {
   if (label === "Disconnect") {
     return (
       <div
-        className={combineClasses(
-          "flex items-center px-4 py-3 cursor-pointer",
-          bgClasses.hover,
-          textClasses.primary,
-        )}
-        onClick={() => onClick({ icon, label, route })}
+        className="flex items-center px-4 py-3 cursor-pointer hover:bg-surface-hover text-foreground"
+        onClick={() => onClick({ icon, label, route, mobile: true })}
       >
-        <div className={combineClasses(textClasses.primary, "mr-3")}>
-          {icon}
-        </div>
-        <span className={combineClasses(textClasses.primary, "text-base")}>
-          {label}
-        </span>
+        <div className="text-foreground mr-3">{icon}</div>
+        <span className="text-foreground text-base">{label}</span>
       </div>
     );
   }
@@ -66,20 +54,14 @@ const MenuItem = ({ icon, label, route, onClick }: MenuItemProps) => {
   return (
     <Link
       href={route || "#"}
-      className={combineClasses(
-        "flex items-center px-4 py-3 cursor-pointer",
-        bgClasses.hover,
-        textClasses.primary,
-      )}
-      onClick={(e) => {
+      className="flex items-center px-4 py-3 cursor-pointer hover:bg-surface-hover text-foreground"
+      onClick={e => {
         e.preventDefault();
-        onClick({ icon, label, route });
+        onClick({ icon, label, route, mobile: true });
       }}
     >
-      <div className={combineClasses(textClasses.primary, "mr-3")}>{icon}</div>
-      <span className={combineClasses(textClasses.primary, "text-base")}>
-        {label}
-      </span>
+      <div className="text-foreground mr-3">{icon}</div>
+      <span className="text-foreground text-base">{label}</span>
     </Link>
   );
 };
@@ -98,7 +80,7 @@ const MenuSection = ({ items, onClick }: MenuSectionProps) => {
           icon={item.icon}
           label={item.label}
           route={item.route}
-          onClick={() => onClick(item)}
+          onClick={onClick}
         />
       ))}
     </>
@@ -108,28 +90,28 @@ const MenuSection = ({ items, onClick }: MenuSectionProps) => {
 interface UserProfileProps {
   avatar: import("next/image").StaticImageData | string; // Accepts StaticImageData or string URL
   name: string;
-  onClick: () => void;
+  onClick?: () => void;
 }
 
 const UserProfile = ({ avatar, name, onClick }: UserProfileProps) => {
   return (
     <div
-      className={combineClasses(
-        "p-4 flex items-center space-x-3 cursor-pointer border-b",
-        borderClasses.divider,
-        textClasses.primary,
-      )}
+      className="px-3 py-2 sm:p-4 flex items-center space-x-3 sm:space-x-3 cursor-pointer border-b border-border text-foreground"
       onClick={onClick}
     >
-      <div className="relative w-10 h-10 rounded-full bg-purple-600 overflow-hidden">
+      <div className="relative w-9 h-9 rounded-full 0 overflow-hidden">
         {avatar ? (
-          <Image
-            src={avatar || "/placeholder.svg"}
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={
+              typeof avatar === "string"
+                ? avatar
+                : avatar?.src || "/Images/user.png"
+            }
             alt="User avatar"
-            fill
-            sizes="40px"
-            className="object-cover"
-            onError={(e) => {
+            // sizes="40px"
+            className="object-cover rounded-full"
+            onError={e => {
               // If image fails to load, replace with placeholder
               const target = e.target as HTMLImageElement;
               target.src = "/Images/user.png";
@@ -145,22 +127,21 @@ const UserProfile = ({ avatar, name, onClick }: UserProfileProps) => {
           />
         )}
       </div>
-      <span
-        className={combineClasses(textClasses.primary, "font-medium text-lg")}
-      >
-        {name}
-      </span>
+      <span className="text-foreground font-medium sm:text-lg">{name}</span>
     </div>
   );
 };
 
 interface UserDropdownProps {
   username: string;
+  avatar?: string | null;
+  onLinkClick?: (route: string) => void; // Optional callback for link clicks
+  linkClick?: () => void; // Optional callback for link clicks
 }
 
-const UserDropdown = ({ username }: UserDropdownProps) => {
+const UserDropdown = ({ username, avatar, onLinkClick }: UserDropdownProps) => {
   const router = useRouter();
-  const userAvatar = User;
+  const userAvatar = avatar;
   const { disconnect } = useDisconnect();
   const { isConnected } = useAccount();
   const userName = username;
@@ -175,19 +156,44 @@ const UserDropdown = ({ username }: UserDropdownProps) => {
           icon: <MonitorPlay size={20} />,
           label: "Channel",
           route: `/${username}`,
+          mobile: true,
         },
         {
           icon: <LayoutDashboard size={20} />,
           label: "Creator Dashboard",
           route: "/dashboard/stream-manager",
+          mobile: false,
         },
-        { icon: <Globe size={20} />, label: "Language", route: "" },
-        { icon: <Settings size={20} />, label: "Settings", route: "/settings" },
+        {
+          icon: <Globe size={20} />,
+          label: "Language",
+          route: "",
+          mobile: false,
+        },
+        {
+          icon: <Settings size={20} />,
+          label: "Settings",
+          route: "/settings",
+          mobile: true,
+        },
       ],
     },
     {
       id: "footer",
-      items: [{ icon: <LogOut size={20} />, label: "Disconnect", route: "/explore" }],
+      items: [
+        {
+          icon: <LogOut size={20} />,
+          label: "Disconnect",
+          route: "/explore",
+          mobile: true,
+        },
+        {
+          icon: <Flag size={20} />,
+          label: "Report a Bug",
+          route: "/explore/report-bug",
+          mobile: true,
+        },
+      ],
     },
   ];
 
@@ -199,11 +205,15 @@ const UserDropdown = ({ username }: UserDropdownProps) => {
         disconnect();
       }
       logout();
+      if (onLinkClick) onLinkClick(item.route || "/explore");
       return;
     }
 
     if (item.route) {
       router.push(item.route);
+      if (onLinkClick) onLinkClick(item.route);
+    } else {
+      if (onLinkClick) onLinkClick("");
     }
   };
 
@@ -232,15 +242,15 @@ const UserDropdown = ({ username }: UserDropdownProps) => {
 
   return (
     <motion.div
-      className="relative w-64 z-50"
+      className="relative sm:w-52 w-40 z-50"
       initial="hidden"
       animate="visible"
       exit="hidden"
       variants={dropdownVariants}
     >
-      <div className={combineClasses(bgClasses.dropdown, textClasses.primary)}>
+      <div className="bg-card border border-border shadow-sm rounded-lg text-foreground">
         <UserProfile
-          avatar={userAvatar}
+          avatar={userAvatar ? userAvatar : "placeholder.svg"}
           name={userName}
           onClick={() => {}} // Empty function since toggle is handled by parent
         />
@@ -249,12 +259,20 @@ const UserDropdown = ({ username }: UserDropdownProps) => {
           {menuItems.map((section, index) => (
             <div
               key={section.id}
-              className={combineClasses(
-                "py-2",
-                index > 0 ? `border-t ${borderClasses.divider}` : "",
-              )}
+              className={`py-2 ${index > 0 ? "border-t border-border" : ""}`}
             >
-              <MenuSection items={section.items} onClick={handleItemClick} />
+              {section.items.map(item => (
+                <div
+                  key={item.label}
+                  className={item.mobile ? "block " : "hidden lg:block"}
+                  onClick={() => handleItemClick(item)}
+                >
+                  <div className="hover:bg-surface-hover flex items-center gap-2.5 px-4 py-2 sm:text-sm text-sm cursor-pointer rounded">
+                    {item.icon}
+                    <span>{item.label}</span>
+                  </div>
+                </div>
+              ))}
             </div>
           ))}
         </div>

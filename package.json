@@ -4,15 +4,27 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "next dev ",
+    "dev": "next dev",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
+    "lint:fix": "next lint --fix",
     "setup-db": "node scripts/setup-db.cjs",
     "update-schema": "node scripts/updateUserSchema.mjs",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "test": "jest"
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage",
+    "test:ci": "jest --ci --coverage --watchAll=false",
+    "type-check": "tsc --noEmit",
+    "type-check:watch": "tsc --noEmit --watch",
+    "prepare": "husky",
+    "commit": "git-cz",
+    "analyze": "ANALYZE=true npm run build",
+    "clean": "rm -rf .next out coverage",
+    "prebuild": "npm run type-check",
+    "predev": "npm run type-check"
   },
   "dependencies": {
     "@fontsource/inter": "^5.1.1",
@@ -34,6 +46,7 @@
     "class-variance-authority": "^0.7.1",
     "cloudinary": "^2.6.1",
     "clsx": "^2.1.1",
+    "cors": "^2.8.5",
     "date-fns": "^4.1.0",
     "dotenv": "^16.4.7",
     "embla-carousel-react": "^8.5.2",
@@ -65,21 +78,45 @@
     "zod": "^3.25.74"
   },
   "devDependencies": {
+    "@commitlint/cli": "^19.8.1",
+    "@commitlint/config-conventional": "^19.8.1",
     "@eslint/eslintrc": "^3",
+    "@next/bundle-analyzer": "^15.5.0",
     "@testing-library/jest-dom": "^6.6.3",
+    "@types/cors": "^2.8.19",
     "@types/formidable": "^3.4.5",
+    "@types/jest": "^30.0.0",
     "@types/mongoose": "^5.11.96",
     "@types/node": "^20",
     "@types/nodemailer": "^6.4.17",
     "@types/nprogress": "^0.2.3",
     "@types/react": "^19.1.8",
     "@types/react-dom": "^19.1.6",
+    "commitizen": "^4.3.1",
+    "cz-conventional-changelog": "^3.3.0",
     "eslint": "^9",
     "eslint-config-next": "15.1.6",
+    "husky": "^9.1.7",
     "jest-environment-jsdom": "^30.0.4",
+    "lint-staged": "^16.1.5",
     "postcss": "^8",
+    "prettier": "^3.6.2",
     "tailwindcss": "^3.4.1",
     "ts-node": "^10.9.2",
     "typescript": "^5"
+  },
+  "lint-staged": {
+    "*.{js,jsx,ts,tsx}": [
+      "prettier --write",
+      "eslint --fix"
+    ],
+    "*.{json,md,yml,yaml}": [
+      "prettier --write"
+    ]
+  },
+  "config": {
+    "commitizen": {
+      "path": "cz-conventional-changelog"
+    }
   }
 }

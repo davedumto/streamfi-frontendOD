@@ -1,28 +1,25 @@
 // utils/userValidators.ts
-import {
-  SocialLink,
-  Creator,
-  UserRegistrationInput,
-  UserUpdateInput,
-} from "../types/user";
+import type { UserRegistrationInput, UserUpdateInput } from "../types/user"; // Make sure these types are correctly defined in types/user.ts
 
 /**
- * Validates a social link object
+ * Validates a single social link object (used for array of social links)
  */
 export function validateSocialLink(socialLink: any): boolean {
   if (!socialLink || typeof socialLink !== "object") return false;
 
-  // Check if socialTitle exists and is a string
-  if (!socialLink.socialTitle || typeof socialLink.socialTitle !== "string")
-    return false;
+  // Check if url exists and is a string
+  if (!socialLink.url || typeof socialLink.url !== "string") return false;
 
-  // Check if socialLink exists and is a string
-  if (!socialLink.socialLink || typeof socialLink.socialLink !== "string")
+  // Check if title exists and is a string
+  if (!socialLink.title || typeof socialLink.title !== "string") return false;
+
+  // Check if platform exists and is a string
+  if (!socialLink.platform || typeof socialLink.platform !== "string")
     return false;
 
   // Basic URL validation
   try {
-    new URL(socialLink.socialLink);
+    new URL(socialLink.url);
     return true;
   } catch (error) {
     return false;
@@ -30,16 +27,38 @@ export function validateSocialLink(socialLink: any): boolean {
 }
 
 /**
- * Validates an array of social links
+ * Validates an array of social links (SocialLink[])
  */
-export function validateSocialLinks(socialLinks: any): boolean {
+export function validateSocialLinksArray(socialLinks: any): boolean {
   if (!Array.isArray(socialLinks)) return false;
-
-  // If array is empty, it's valid
   if (socialLinks.length === 0) return true;
+  return socialLinks.every(link => validateSocialLink(link));
+}
 
-  // Check each social link
-  return socialLinks.every((link) => validateSocialLink(link));
+/**
+ * Validates a social links object (Record<string, string>)
+ */
+export function validateSocialLinksRecord(socialLinks: any): boolean {
+  if (
+    !socialLinks ||
+    typeof socialLinks !== "object" ||
+    Array.isArray(socialLinks)
+  )
+    return false;
+
+  for (const key in socialLinks) {
+    if (Object.prototype.hasOwnProperty.call(socialLinks, key)) {
+      const url = socialLinks[key];
+      if (typeof url !== "string") return false;
+      // Basic URL validation
+      try {
+        new URL(url);
+      } catch (error) {
+        return false;
+      }
+    }
+  }
+  return true;
 }
 
 /**
@@ -85,11 +104,8 @@ export function validateUserRegistration(input: UserRegistrationInput): {
   if (!input.username) return { isValid: false, error: "Username is required" };
   if (!input.wallet) return { isValid: false, error: "Wallet is required" };
 
-  // Validate email (assuming validateEmail function exists elsewhere in your codebase)
-  // if (!validateEmail(input.email)) return { isValid: false, error: "Invalid email format" };
-
-  // Validate social links if provided
-  if (input.socialLinks && !validateSocialLinks(input.socialLinks)) {
+  // Validate social links if provided (assuming SocialLink[] for registration based on YAML, though YAML is ambiguous)
+  if (input.socialLinks && !validateSocialLinksArray(input.socialLinks)) {
     return { isValid: false, error: "Invalid social links format" };
   }
 
@@ -113,13 +129,8 @@ export function validateUserUpdate(input: UserUpdateInput): {
     return { isValid: false, error: "No update fields provided" };
   }
 
-  // Validate email if provided
-  // if (input.email && !validateEmail(input.email)) {
-  //   return { isValid: false, error: "Invalid email format" };
-  // }
-
-  // Validate social links if provided
-  if (input.socialLinks && !validateSocialLinks(input.socialLinks)) {
+  // Validate social links if provided (now expecting Record<string, string> for updates)
+  if (input.socialLinks && !validateSocialLinksRecord(input.socialLinks)) {
     return { isValid: false, error: "Invalid social links format" };
   }
 

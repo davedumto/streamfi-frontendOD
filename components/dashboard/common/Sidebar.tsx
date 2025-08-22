@@ -11,7 +11,6 @@ import {
   ArrowLeftToLine,
 } from "lucide-react";
 import { LiaCoinsSolid } from "react-icons/lia";
-import { bgClasses, textClasses, borderClasses } from "@/lib/theme-classes";
 
 interface SidebarProps {
   isCollapsed: boolean;
@@ -154,11 +153,11 @@ export default function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
     >
       <motion.div
         variants={itemVariants}
-        className="flex justify-between items-center w-full mb-4 px-4"
+        className="flex justify-between items-center w-full mb-4 px-3"
       >
         <motion.span
           variants={itemVariants}
-          className={`${textClasses.secondary} font-semibold tracking-wider`}
+          className={`text-muted-foreground text-sm font-semibold tracking-wider`}
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2, duration: 0.3 }}
@@ -167,7 +166,7 @@ export default function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
         </motion.span>
         <motion.button
           variants={itemVariants}
-          className={`p-2 ${bgClasses.hover} rounded-full ${textClasses.primary} relative overflow-hidden`}
+          className={`p-2 hover:bg-surface rounded-full text-foreground relative overflow-hidden`}
           onClick={onToggle}
           whileHover={{ scale: 1.1, rotate: 5 }}
           whileTap={{ scale: 0.9 }}
@@ -188,7 +187,7 @@ export default function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
         </motion.button>
       </motion.div>
 
-      <motion.nav variants={itemVariants} className="flex flex-col gap-1">
+      <motion.nav variants={itemVariants} className="flex flex-col gap-0.5">
         {navItems.map((item, index) => {
           const isActive = pathname === item.path;
           return (
@@ -206,8 +205,8 @@ export default function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
                   href={item.path}
                   className={`flex items-center gap-3 p-3 rounded-lg transition-all duration-300 relative overflow-hidden ${
                     isActive
-                      ? `${bgClasses.selected} ${textClasses.primary} shadow-lg border-l-4 border-purple-500`
-                      : `${textClasses.secondary} hover:${textClasses.primary} ${bgClasses.hover}`
+                      ? `bg-accent text-foreground shadow-lg border-l-4 border-highlight`
+                      : `text-muted-foreground hover:text-foreground hover:bg-surface-hover`
                   }`}
                 >
                   <motion.div
@@ -216,7 +215,7 @@ export default function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
                   >
                     <div
                       className={
-                        isActive ? textClasses.primary : textClasses.secondary
+                        isActive ? "text-foreground" : "text-muted-foreground"
                       }
                     >
                       {item.icon}
@@ -293,7 +292,7 @@ export default function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
     >
       <div className="flex justify-center items-center w-full mb-4">
         <motion.button
-          className={`p-2 ${bgClasses.hover} rounded-full ${textClasses.primary} relative overflow-hidden`}
+          className={`p-2 hover:bg-surface-hover rounded-full text-foreground relative overflow-hidden`}
           onClick={onToggle}
           whileHover={{ scale: 1.1, rotate: -5 }}
           whileTap={{ scale: 0.9 }}
@@ -314,7 +313,7 @@ export default function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
         </motion.button>
       </div>
 
-      <motion.nav className="flex flex-col gap-3 items-center">
+      <motion.nav className="flex flex-col gap-2 items-center">
         {navItems.map((item, index) => {
           const isActive = pathname === item.path;
           return (
@@ -334,8 +333,8 @@ export default function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
                 href={item.path}
                 className={`flex items-center justify-center p-3 rounded-lg transition-all duration-300 relative ${
                   isActive
-                    ? `${bgClasses.selected} ${textClasses.primary} shadow-lg ring-2 ring-purple-500/30`
-                    : `${textClasses.secondary} hover:${textClasses.primary} ${bgClasses.hover}`
+                    ? `bg-accent text-foreground shadow-lg ring-2 ring-highlight/30`
+                    : `text-muted-foreground hover:text-foreground hover:bg-surface-hover`
                 }`}
                 title={item.name}
               >
@@ -345,7 +344,7 @@ export default function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
                 >
                   <div
                     className={
-                      isActive ? textClasses.primary : textClasses.secondary
+                      isActive ? "text-foreground" : "text-muted-foreground"
                     }
                   >
                     {item.icon}
@@ -369,10 +368,10 @@ export default function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
         initial={{ opacity: 0, scaleX: 0 }}
         animate={{ opacity: 1, scaleX: 1 }}
         transition={{ delay: 0.5, duration: 0.3 }}
-        className={`my-4 border-t ${borderClasses.primary}`}
+        className={`my-4 border-t border-border`}
       />
 
-      <motion.div className="flex flex-col items-center gap-3">
+      {/* <motion.div className="flex flex-col items-center gap-3">
         <motion.button
           initial={{ opacity: 0, scale: 0.5, rotate: -10 }}
           animate={{ opacity: 1, scale: 1, rotate: 0 }}
@@ -395,19 +394,19 @@ export default function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
         >
           <ChartColumnDecreasing size={18} />
         </motion.button>
-      </motion.div>
+      </motion.div> */}
     </motion.div>
   );
 
   return (
     <motion.aside
-      className={`${bgClasses.sidebar} flex-shrink-0 relative overflow-hidden border-r ${borderClasses.primary} shadow-lg flex flex-col`}
+      className={`bg-sidebar flex-shrink-0 relative overflow-hidden border-r border-border shadow-lg flex flex-col`}
       variants={sidebarVariants}
       animate={isCollapsed ? "collapsed" : "expanded"}
       style={{ willChange: "width" }}
     >
       <div className="absolute inset-0">
-        <div className="p-4 flex flex-col gap-5 h-full overflow-hidden">
+        <div className="p-3 flex flex-col gap-4 h-full overflow-hidden">
           <AnimatePresence mode="wait">
             <motion.div
               key={isCollapsed ? "collapsed" : "expanded"}

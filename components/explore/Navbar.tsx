@@ -1,7 +1,8 @@
+/* eslint-disable @next/next/no-img-element */
 "use client";
-import { useState, useRef, useEffect, useCallback, use } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { StreamfiLogoLight, StreamfiLogoShort } from "@/public/icons";
-import { Search, Bell } from "lucide-react";
+import { Search, Bell, ChevronDown } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
@@ -10,17 +11,8 @@ import { useAccount, useDisconnect } from "@starknet-react/core";
 import { useAuth } from "@/components/auth/auth-provider";
 import ConnectModal from "../connectWallet";
 import ProfileModal from "./ProfileModal";
-import SimpleLoader from "../ui/loader/simple-loader";
 import Avatar from "@/public/Images/user.png";
 import ProfileDropdown from "../ui/profileDropdown";
-import {
-  bgClasses,
-  textClasses,
-  borderClasses,
-  ringClasses,
-  buttonClasses,
-  componentClasses,
-} from "@/lib/theme-classes";
 
 interface NavbarProps {
   onConnectWallet?: () => void;
@@ -28,14 +20,22 @@ interface NavbarProps {
   onConnect?: () => void;
 }
 
+type Category = {
+  id: string;
+  title: string;
+  imageurl?: string;
+};
+
 export default function Navbar({}: NavbarProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const searchDropdownRef = useRef<HTMLDivElement>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const { address, isConnected } = useAccount();
   const { user, refreshUser } = useAuth();
   const { disconnect } = useDisconnect();
+  const [isSearchDropdownOpen, setIsSearchDropdownOpen] = useState(false);
   const [profileModalOpen, setProfileModalOpen] = useState(false);
   const [connectStep, setConnectStep] = useState<
     "profile" | "verify" | "success"
@@ -49,20 +49,21 @@ export default function Navbar({}: NavbarProps) {
       return user.username;
     }
 
-    // Fallback to sessionStorage if user context doesn't have username yet
-    try {
-      const userData = sessionStorage.getItem("userData");
-      if (userData) {
-        const parsedUser = JSON.parse(userData);
-        if (parsedUser.username) {
-          return parsedUser.username;
+    if (typeof window !== "undefined") {
+      // ✅ prevents SSR error
+      try {
+        const userData = sessionStorage.getItem("userData");
+        if (userData) {
+          const parsedUser = JSON.parse(userData);
+          if (parsedUser.username) {
+            return parsedUser.username;
+          }
         }
+      } catch (error) {
+        console.error("Error parsing user data from sessionStorage:", error);
       }
-    } catch (error) {
-      console.error("Error parsing user data from sessionStorage:", error);
     }
 
-    // Final fallback to shortened address
     if (address) {
       return `${address.substring(0, 6)}...${address.slice(-4)}`;
     }
@@ -70,21 +71,86 @@ export default function Navbar({}: NavbarProps) {
     return "Unknown User";
   }, [user?.username, address]);
 
+  // Returns either the placeholder, username, or sliced address
+  const renderDisplayName = () => {
+    // Show loading pulse while fetching user info
+    if (isLoading) {
+      return (
+        <>
+          <div className="w-24 h-6 animate-pulse bg-gray-400 rounded hidden sm:block" />
+          <div className="w-5 h-5 rounded-full bg-gray-400 ml-3 animate-pulse inline-flex" />
+        </>
+      );
+    }
+
+    // Try to get username from auth context
+    if (user?.username) {
+      return user.username;
+    }
+
+    // Try to get username from sessionStorage
+    try {
+      const storedData = sessionStorage.getItem("userData");
+      if (storedData) {
+        const parsedUser = JSON.parse(storedData);
+        if (parsedUser.username) {
+          return parsedUser.username;
+        }
+      }
+    } catch (err) {
+      console.error("Error reading userData from sessionStorage:", err);
+    }
+
+    // Fallback to sliced address
+    if (address) {
+      return `${address.substring(0, 6)}...${address.slice(-4)}`;
+    }
+
+    // If all else fails
+    return "Unknown User";
+  };
+
+  useEffect(() => {
+    const fetchUser = async () => {
+      // Only fetch if we have a username and address
+      if (!user?.username || !address) {
+        return;
+      }
+
+      try {
+        const response = await fetch(`/api/users/${user.username}`);
+        if (response.status === 404) {
+          // setProfileModalOpen(true);
+        } else if (response.ok) {
+          const result = await response.json();
+          console.log("User found:", result);
+        }
+      } catch (error) {
+        console.error("Error finding user:", error);
+      }
+    };
+    fetchUser();
+  }, [address, user?.username]);
+
   const getAvatar = useCallback(() => {
     if (user?.avatar) {
       return user.avatar;
     }
-    try {
-      const userData = sessionStorage.getItem("userData");
-      if (userData) {
-        const parsedUser = JSON.parse(userData);
-        if (parsedUser.avatar) {
-          return parsedUser.avatar;
+
+    if (typeof window !== "undefined") {
+      try {
+        const userData = sessionStorage.getItem("userData");
+        if (userData) {
+          const parsedUser = JSON.parse(userData);
+          if (parsedUser.avatar) {
+            return parsedUser.avatar;
+          }
         }
+      } catch (error) {
+        console.error("Error parsing user data from sessionStorage:", error);
       }
-    } catch (error) {
-      console.error("Error parsing user data from sessionStorage:", error);
     }
+
     return Avatar;
   }, [user?.avatar]);
 
@@ -97,40 +163,62 @@ export default function Navbar({}: NavbarProps) {
   };
 
   useEffect(() => {
-    if (searchQuery.trim() === "") {
-      setSearchResults([]);
-      return;
-    }
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        searchInputRef.current &&
+        !searchInputRef.current.contains(event.target as Node) &&
+        searchDropdownRef.current &&
+        !searchDropdownRef.current.contains(event.target as Node)
+      ) {
+        setIsSearchDropdownOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
 
-    const mockResults: SearchResult[] = [
-      {
-        id: "1",
-        title: `${searchQuery} Live Stream`,
-        type: "stream",
-        image: "/icons/Recommend pfps.svg",
-      },
-      {
-        id: "2",
-        title: `${searchQuery} Gaming Channel`,
-        type: "channel",
-        image: "/icons/Recommend pfps.svg",
-      },
-      {
-        id: "3",
-        title: `Best ${searchQuery} Moments`,
-        type: "video",
-        image: "/icons/Recommend pfps.svg",
-      },
-    ];
-
-    setSearchResults(mockResults);
-  }, [searchQuery]);
-
+  // Autofocus input on mount
   useEffect(() => {
     if (searchInputRef.current) {
       searchInputRef.current.focus();
     }
   }, []);
+
+  // Fetch live search results
+  useEffect(() => {
+    if (searchQuery.trim() === "") {
+      setSearchResults([]);
+      return;
+    }
+
+    const fetchResults = async () => {
+      try {
+        const res = await fetch(
+          `/api/category?title=${encodeURIComponent(searchQuery)}`
+        );
+        const data = await res.json();
+
+        const normalizedResults = (data.categories ?? []).map(
+          (cat: Category) => ({
+            id: cat.id,
+            title: cat.title,
+            image: cat.imageurl || "/placeholder.svg",
+            type: "category", // static label
+          })
+        );
+
+        setSearchResults(normalizedResults);
+      } catch (error) {
+        console.error("Search fetch error:", error);
+        setSearchResults([]);
+      }
+    };
+
+    const debounce = setTimeout(fetchResults, 300);
+    return () => clearTimeout(debounce);
+  }, [searchQuery]);
 
   const handleConnectWallet = () => {
     if (isConnected) {
@@ -145,7 +233,7 @@ export default function Navbar({}: NavbarProps) {
 
     setIsLoading(true);
     try {
-      const response = await fetch(`/api/users/${address}`);
+      const response = await fetch(`/api/users/wallet/${address}`);
 
       if (response.status === 404) {
         setProfileModalOpen(true);
@@ -155,6 +243,7 @@ export default function Navbar({}: NavbarProps) {
 
         // Store the entire user object in sessionStorage
         sessionStorage.setItem("userData", JSON.stringify(result.user));
+        sessionStorage.setItem("username", result.user?.username);
 
         // Refresh user in auth context if needed
         if (!user || user.wallet !== result.user.wallet) {
@@ -212,7 +301,7 @@ export default function Navbar({}: NavbarProps) {
   return (
     <>
       <header
-        className={`h-20 flex items-center justify-between px-4 border-b-[0.5px] ${borderClasses.primary}  ${bgClasses.highlight} z-50`}
+        className={`h-20 flex items-center justify-between px-4 border-b-[0.5px] border-border bg-sidebar z-50`}
       >
         <div className="flex items-center gap-4">
           <Link href="/explore" className="flex items-center gap-2">
@@ -232,30 +321,39 @@ export default function Navbar({}: NavbarProps) {
         <div className="hidden md:block flex-1 items-center max-w-xl mx-4 relative">
           <div className="relative">
             <input
+              ref={searchInputRef}
               type="text"
               placeholder="Search"
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className={`w-full ${bgClasses.input} rounded-xl py-2 pl-10 pr-4 text-sm outline-none ${ringClasses.primary}`}
+              onChange={e => {
+                setSearchQuery(e.target.value);
+                setIsSearchDropdownOpen(true);
+              }}
+              onFocus={() => {
+                if (searchResults.length > 0) setIsSearchDropdownOpen(true);
+              }}
+              className={`w-full bg-input rounded-xl py-2 pl-10 pr-4 text-sm outline-none focus:ring-1 focus:ring-highlight focus:outline-none`}
             />
             <Search
               className="absolute left-3 top-[47%] transform -translate-y-1/2 text-gray-400"
               size={16}
             />
           </div>
+
           <AnimatePresence>
-            {searchResults.length > 0 && (
+            {isSearchDropdownOpen && searchResults.length > 0 && (
               <motion.div
                 initial={{ opacity: 0, y: -10 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -10 }}
-                className={`absolute top-full left-0 right-0 mt-2 ${componentClasses.dropdown} z-20`}
+                className={`absolute top-full left-0 right-0 mt-2 bg-dropdown border border-border shadow-lg rounded-md z-20`}
               >
                 <div className="p-2">
-                  {searchResults.map((result) => (
-                    <div
+                  {searchResults.map(result => (
+                    <Link
                       key={result.id}
-                      className={`flex items-center gap-3 p-2 ${bgClasses.hover} rounded-md cursor-pointer`}
+                      className={`flex items-center gap-3 p-2 hover:bg-surface-hover rounded-md cursor-pointer relative z-30`}
+                      href={`/browse/${result.type}/${result.title.toLowerCase()}`}
                     >
                       <div className="w-10 h-10 rounded bg-gray-700 overflow-hidden">
                         <Image
@@ -268,18 +366,16 @@ export default function Navbar({}: NavbarProps) {
                         />
                       </div>
                       <div>
-                        <div
-                          className={`text-sm font-medium ${textClasses.primary}`}
-                        >
+                        <div className={`text-sm font-medium text-foreground`}>
                           {result.title}
                         </div>
                         <div
-                          className={`text-xs ${textClasses.tertiary} capitalize`}
+                          className={`text-xs text-muted-foreground capitalize`}
                         >
                           {result.type}
                         </div>
                       </div>
-                    </div>
+                    </Link>
                   ))}
                 </div>
               </motion.div>
@@ -291,32 +387,66 @@ export default function Navbar({}: NavbarProps) {
           {isConnected && address && (
             <>
               <button>
-                <Bell className={`${textClasses.primary} w-4 h-4 `} />
+                <Bell className={`text-foreground w-4 h-4 `} />
               </button>
 
               {/* Avatar with dropdown */}
               <div className="relative avatar-container">
                 <div
-                  className={`cursor-pointer flex gap-[10px] font-medium items-center text-[14px] ${textClasses.onColor}`}
+                  className={`cursor-pointer flex gap-[10px] font-medium items-center text-[14px] text-white`}
                   onClick={toggleProfileDropdown}
                 >
-                  <span className={`${textClasses.primary}`}>
-                    {truncatedDisplayName}
-                  </span>
-                  <Image
-                    src={userAvatar || Avatar}
-                    alt="Avatar"
-                    width={40}
-                    height={40}
-                    className=""
+                  {isLoading ? (
+                    // Skeletons while loading
+                    <>
+                      <div className="w-24 h-6 animate-pulse bg-gray-400 rounded hidden sm:block" />
+                      <div className="w-6 h-6 rounded-full bg-gray-400 ml-1 animate-pulse inline-flex" />
+                    </>
+                  ) : (
+                    <>
+                      {/* Display name */}
+                      <span className={`text-foreground hidden sm:flex`}>
+                        {renderDisplayName()}
+                      </span>
+
+                      {/* Avatar */}
+                      {typeof userAvatar === "string" &&
+                      userAvatar.includes("cloudinary.com") ? (
+                        <img
+                          src={userAvatar}
+                          alt="Avatar"
+                          className="w-8 h-8 sm:w-6 sm:h-6 rounded-full object-cover"
+                        />
+                      ) : (
+                        <Image
+                          src={Avatar}
+                          alt="Avatar"
+                          width={32}
+                          height={32}
+                          className="rounded-full"
+                        />
+                      )}
+                    </>
+                  )}
+
+                  <ChevronDown
+                    className={`text-foreground w-4 h-4 sm:hidden mt-0.5`}
                   />
                 </div>
 
                 {/* Render ProfileDropdown with AnimatePresence */}
                 <AnimatePresence>
                   {isProfileDropdownOpen && (
-                    <div className="absolute top-full right-0 mt-2 profile-dropdown-container z-50">
-                      <ProfileDropdown username={truncatedDisplayName} />
+                    <div className="absolute top-full -right-2 sm:right-0 mt-2 profile-dropdown-container z-50">
+                      <ProfileDropdown
+                        username={truncatedDisplayName}
+                        avatar={`${userAvatar}`}
+                        onLinkClick={() => {
+                          setTimeout(() => {
+                            toggleProfileDropdown();
+                          }, 400);
+                        }}
+                      />
                     </div>
                   )}
                 </AnimatePresence>
@@ -326,7 +456,7 @@ export default function Navbar({}: NavbarProps) {
           {!isConnected && (
             <button
               onClick={handleConnectWallet}
-              className={`${buttonClasses.connect} px-4 py-3 rounded-md text-sm font-medium`}
+              className={`bg-highlight hover:bg-highlight/80 text-primary-foreground px-4 py-3 rounded-md text-sm font-medium`}
             >
               Connect Wallet
             </button>
@@ -340,11 +470,13 @@ export default function Navbar({}: NavbarProps) {
           <motion.div className="fixed inset-0 z-50 flex items-center justify-center">
             {/* Backdrop */}
             <div
-              className={`absolute inset-0 ${bgClasses.overlay}`}
+              className={`absolute inset-0 bg-overlay`}
               onClick={() => setIsModalOpen(false)}
             />
             {/* Modal Content */}
-            <motion.div className={`${componentClasses.modal} p-6 z-10`}>
+            <motion.div
+              className={`bg-modal border border-border shadow-xl rounded-lg p-6 z-10`}
+            >
               <ConnectModal
                 isModalOpen={isModalOpen}
                 setIsModalOpen={setIsModalOpen}
@@ -363,7 +495,7 @@ export default function Navbar({}: NavbarProps) {
         )}
       </AnimatePresence>
 
-      {isLoading && <SimpleLoader />}
+      {/* {isLoading && <SimpleLoader />} */}
     </>
   );
 }

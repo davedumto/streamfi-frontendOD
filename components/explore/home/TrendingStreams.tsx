@@ -7,12 +7,6 @@ import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
 import type { TrendingStreamsProps } from "@/types/explore/home";
 import Image from "next/image";
-import {
-  textClasses,
-  bgClasses,
-  buttonClasses,
-  combineClasses,
-} from "@/lib/theme-classes";
 
 export function TrendingStreams({ title, streams }: TrendingStreamsProps) {
   const [showAll, setShowAll] = useState(false);
@@ -127,7 +121,7 @@ export function TrendingStreams({ title, streams }: TrendingStreamsProps) {
         });
 
         // Wait for scroll to complete before toggling
-        await new Promise((resolve) => setTimeout(resolve, 400));
+        await new Promise(resolve => setTimeout(resolve, 400));
       }
       setShowAll(false);
     } else {
@@ -143,14 +137,7 @@ export function TrendingStreams({ title, streams }: TrendingStreamsProps) {
 
   return (
     <div ref={sectionRef} className="w-full py-6">
-      <h2
-        className={combineClasses(
-          "text-2xl font-bold mb-6",
-          textClasses.primary,
-        )}
-      >
-        {title}
-      </h2>
+      <h2 className="text-2xl font-bold mb-6 text-foreground">{title}</h2>
 
       <motion.div
         variants={containerVariants}
@@ -159,27 +146,36 @@ export function TrendingStreams({ title, streams }: TrendingStreamsProps) {
         className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-x-4 gap-y-6 md:gap-y-10"
       >
         <AnimatePresence mode="wait">
-          {visibleStreams.map((stream) => (
+          {visibleStreams.map(stream => (
             <motion.div
               key={`${stream.id}-${showAll ? "expanded" : "collapsed"}`}
               variants={itemVariants}
               initial="hidden"
               animate="visible"
               exit="exit"
-              onClick={(e) => {
+              onClick={e => {
                 console.log("Trending card clicked!"); // Debug log
                 handleCardClick(stream, e);
               }}
-              className={`${bgClasses.card} group cursor-pointer p-2 pb-4 rounded-lg transition-all duration-300 hover:shadow-lg hover:scale-[1.02]`}
+              className="bg-card group cursor-pointer p-2 pb-4 rounded-lg transition-all duration-300 hover:shadow-lg hover:scale-[1.02]"
             >
               <div className="relative rounded-lg overflow-hidden">
-                <Image
-                  width={500}
-                  height={300}
-                  src={stream.thumbnail || "/placeholder.svg"}
-                  alt={stream.title}
-                  className="w-full aspect-video object-cover transition-transform duration-300 group-hover:scale-105"
-                />
+                {typeof stream.thumbnail === "string" &&
+                stream.thumbnail.includes("cloudinary.com") ? (
+                  <img
+                    src={stream.thumbnail}
+                    alt={stream.title}
+                    className="w-full aspect-video object-cover transition-transform duration-300 group-hover:scale-105"
+                  />
+                ) : (
+                  <Image
+                    width={500}
+                    height={300}
+                    src={stream.thumbnail || "/placeholder.svg"}
+                    alt={stream.title}
+                    className="w-full aspect-video object-cover transition-transform duration-300 group-hover:scale-105"
+                  />
+                )}
 
                 <div className="absolute top-2 left-2 bg-red-600 text-white px-2 py-0.5 text-sm rounded">
                   Live
@@ -194,51 +190,40 @@ export function TrendingStreams({ title, streams }: TrendingStreamsProps) {
               <div className="mt-2 flex flex-col items-start gap-2">
                 <div className="flex items-center gap-x-2">
                   <div className="w-8 h-8 rounded overflow-hidden flex-shrink-0">
-                    <Image
-                      width={300}
-                      height={300}
-                      src={stream.streamer.logo || "/placeholder.svg"}
-                      alt={stream.streamer.name}
-                      className="w-full h-full object-cover"
-                    />
-                  </div>
-                  <p
-                    className={combineClasses(
-                      "text-sm hover:underline",
-                      textClasses.secondary,
+                    {typeof stream.streamer.logo === "string" &&
+                    stream.streamer.logo.includes("cloudinary.com") ? (
+                      <img
+                        src={stream.streamer.logo}
+                        alt={stream.streamer.name}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <Image
+                        width={300}
+                        height={300}
+                        src={stream.streamer.logo || "/placeholder.svg"}
+                        alt={stream.streamer.name}
+                        className="w-full h-full object-cover"
+                      />
                     )}
-                  >
+                  </div>
+                  <p className="text-sm hover:underline text-muted-foreground">
                     {stream.streamer.name}
                   </p>
                 </div>
 
                 <div>
-                  <h3
-                    className={combineClasses(
-                      "font-semibold text-lg line-clamp-1 group-hover:text-opacity-80 transition-opacity",
-                      textClasses.primary,
-                    )}
-                  >
+                  <h3 className="font-semibold text-lg line-clamp-1 group-hover:text-opacity-80 transition-opacity text-foreground">
                     {stream.title}
                   </h3>
                   <div className="flex flex-wrap gap-2 mt-1">
-                    <span
-                      className={combineClasses(
-                        "text-sm px-2 py-0.5 rounded",
-                        bgClasses.selected,
-                        textClasses.primary,
-                      )}
-                    >
+                    <span className="text-sm px-2 py-0.5 rounded bg-highlight text-foreground">
                       {stream.location}
                     </span>
                     {stream.tags.map((tag, index) => (
                       <span
                         key={index}
-                        className={combineClasses(
-                          "text-sm px-2 py-0.5 rounded",
-                          bgClasses.selected,
-                          textClasses.primary,
-                        )}
+                        className="text-sm px-2 py-0.5 rounded bg-highlight text-foreground"
                       >
                         {tag}
                       </span>
@@ -261,13 +246,11 @@ export function TrendingStreams({ title, streams }: TrendingStreamsProps) {
             <Button
               onClick={handleToggle}
               disabled={isTransitioning}
-              className={combineClasses(
-                "flex items-center justify-center gap-2 w-full outline-none border-none focus:ring-0 transition-opacity",
-                buttonClasses.reset,
+              className={`flex items-center justify-center gap-2 w-full outline-none border-none focus:ring-0 transition-opacity bg-transparent hover:bg-surface-hover ${
                 isTransitioning
                   ? "opacity-70 cursor-not-allowed"
-                  : "opacity-100",
-              )}
+                  : "opacity-100"
+              }`}
             >
               {showAll ? "Show less" : "Show more"}
               <motion.div
